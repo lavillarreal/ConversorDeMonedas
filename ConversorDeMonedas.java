@@ -5,10 +5,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
 import java.text.DecimalFormat;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class ConversorDeMonedas {
     public static void main(String[] argv) throws IOException {
@@ -130,8 +128,58 @@ public class ConversorDeMonedas {
         return conversion;
     }
 
-    private static Double LiveConversion(String startCurrency, String endCurrency, Double startValue){
+    private static Double LiveConversion(String startCurrency, String endCurrency, Double startValue) {
         System.out.print("\nLiveConversion\n");
+
+        String apiUrl = "https://v6.exchangerate-api.com/v6/d3de2c17dcbc526b296df457/latest/" + startCurrency;
+        try {
+            // Crear conexión HTTP
+            URL url = new URL(apiUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Accept", "application/json");
+
+            // Verificar respuesta
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                // Leer la respuesta
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+
+                // Parsear el JSON usando Gson
+                JsonObject jsonResponse = JsonParser.parseString(response.toString()).getAsJsonObject();
+                JsonObject conversionRates = jsonResponse.getAsJsonObject("conversion_rates");
+
+                if (conversionRates.has(endCurrency)) {
+                    // Obtener el factor de conversión
+                    Double conversionRate = conversionRates.get(endCurrency).getAsDouble();
+
+                    // Realizar la conversión
+                    Double convertedValue = startValue * conversionRate;
+                    DecimalFormat df = new DecimalFormat("#.####");
+
+                    System.out.println(
+                            "La cantidad de " + startValue + " " + startCurrency + " equivale a " +
+                                    df.format(convertedValue) + " " + endCurrency
+                    );
+
+                    return convertedValue;
+                } else {
+                    System.out.println("La moneda destino no está disponible en la API.");
+                }
+            } else {
+                System.out.println("Error en la solicitud: " + responseCode);
+            }
+            connection.disconnect();
+        } catch (Exception e) {
+            System.out.println("Error al realizar la conversión en vivo: " + e.getMessage());
+            e.printStackTrace();
+        }
         return 0.0;
     }
 
@@ -266,8 +314,6 @@ public class ConversorDeMonedas {
             e.printStackTrace();
         }
     }
-
-
 }
 
 
